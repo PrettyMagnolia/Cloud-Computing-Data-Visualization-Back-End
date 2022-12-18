@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class TopOrder {
+public class OrderInfo {
     String product_id;
     Integer sale_num;
     String sum_pay;

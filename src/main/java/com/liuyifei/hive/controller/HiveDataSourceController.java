@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import javax.sql.DataSource;
 
@@ -183,7 +184,7 @@ public class HiveDataSourceController {
      * 订单量Top
      */
     @GetMapping("/getTopOrder")
-    public Result<List<TopOrder>> getTopOrder() throws SQLException {
+    public Result<List<OrderInfo>> getTopOrder() throws SQLException {
         try {
             Statement statement = druidDataSource.getConnection().createStatement();
             String sql = "with p as \n" +
@@ -210,13 +211,13 @@ public class HiveDataSourceController {
                     "WHERE rank_sale_num<=10\n";
             logger.info("Running: " + sql);
             ResultSet res = statement.executeQuery(sql);
-            List<TopOrder> topOrders = new ArrayList<>();
+            List<OrderInfo> orderInfos = new ArrayList<>();
             while (res.next()) {
-                TopOrder topOrder = new TopOrder(res.getString("product_id"), res.getInt("sale_num"), res.getString("sum_pay"), res.getInt("rank_sale_num"));
-                topOrders.add(topOrder);
+                OrderInfo orderInfo = new OrderInfo(res.getString("product_id"), res.getInt("sale_num"), res.getString("sum_pay"), res.getInt("rank_sale_num"));
+                orderInfos.add(orderInfo);
             }
             logger.info("success");
-            return Result.success(topOrders);
+            return Result.success(orderInfos);
         } catch (Exception e) {
             logger.info("fail");
             return Result.fail(500, e.getMessage());
@@ -227,7 +228,7 @@ public class HiveDataSourceController {
      * 销售额Top
      */
     @GetMapping("/getTopPay")
-    public Result<List<TopOrder>> getTopPay() throws SQLException {
+    public Result<List<OrderInfo>> getTopPay() throws SQLException {
         try {
             Statement statement = druidDataSource.getConnection().createStatement();
             String sql = "with p as \n" +
@@ -254,13 +255,84 @@ public class HiveDataSourceController {
                     "WHERE rank_sale_num<=10\n";
             logger.info("Running: " + sql);
             ResultSet res = statement.executeQuery(sql);
-            List<TopOrder> topOrders = new ArrayList<>();
+            List<OrderInfo> orderInfos = new ArrayList<>();
             while (res.next()) {
-                TopOrder topOrder = new TopOrder(res.getString("product_id"), res.getInt("sale_num"), res.getString("sum_pay"), res.getInt("rank_sale_num"));
-                topOrders.add(topOrder);
+                OrderInfo orderInfo = new OrderInfo(res.getString("product_id"), res.getInt("sale_num"), res.getString("sum_pay"), res.getInt("rank_sale_num"));
+                orderInfos.add(orderInfo);
             }
             logger.info("success");
-            return Result.success(topOrders);
+            return Result.success(orderInfos);
+        } catch (Exception e) {
+            logger.info("fail");
+            return Result.fail(500, e.getMessage());
+        }
+    }
+
+    /**
+     * 组合查询
+     */
+    @GetMapping("/getCombination")
+    public Result<List<OrderInfo>> getCombination(String age, String gender, String marry, String order) throws SQLException {
+        try {
+            ArrayList<String> conditions = new ArrayList<>();
+            if (!Objects.equals(age, "")) {
+                conditions.add("Age='" + age + "'");
+            }
+            if (!Objects.equals(gender, "")) {
+                conditions.add("Gender='" + gender + "'");
+            }
+            if (!Objects.equals(marry, "")) {
+                conditions.add("Marital_Status=" + marry + "");
+            }
+
+            boolean has_condition = false;
+            String where_string = "";
+            if (conditions.size() != 0) {
+                has_condition = true;
+                for (int index = 0; index < conditions.size(); index++) {
+                    if (index==0){
+                        where_string += "WHERE " + conditions.get(index) + " ";
+                    }
+                    else{
+                        where_string += "AND " + conditions.get(index) + " ";
+                    }
+                }
+            }
+
+
+            Statement statement = druidDataSource.getConnection().createStatement();
+            String sql = "with p as \n" +
+                    "(\n" +
+                    "SELECT \n" +
+                    "Product_ID,\n" +
+                    "count(Product_ID) sale_num,\n" +
+                    "sum(Purchase) sum_pay\n" +
+                    "FROM \n" +
+                    "captain_data_shop_model\n" +
+                    where_string + "\n" +
+                    "GROUP BY\n" +
+                    "Product_ID\n" +
+                    ")\n" +
+                    "\n" +
+                    "SELECT * FROM \n" +
+                    "(\n" +
+                    "SELECT \n" +
+                    "p.*,\n" +
+                    "\n" +
+                    "rank() over( order by "+ order +" desc) rank_sale_num\n" +
+                    "FROM  \n" +
+                    "p \n" +
+                    ") t_1\n" +
+                    "WHERE rank_sale_num<=10\n";
+            logger.info("Running: " + sql);
+            ResultSet res = statement.executeQuery(sql);
+            List<OrderInfo> orderInfos = new ArrayList<>();
+            while (res.next()) {
+                OrderInfo orderInfo = new OrderInfo(res.getString("product_id"), res.getInt("sale_num"), res.getString("sum_pay"), res.getInt("rank_sale_num"));
+                orderInfos.add(orderInfo);
+            }
+            logger.info("success");
+            return Result.success(orderInfos);
         } catch (Exception e) {
             logger.info("fail");
             return Result.fail(500, e.getMessage());
